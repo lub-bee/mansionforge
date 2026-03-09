@@ -10,13 +10,14 @@
   <div id="app">
     <header id="titlebar">
       <div class="brand">MAPFORGE</div>
-      <div id="filename-display" class="filename" title="Cliquer pour renommer">plan_sans_titre.bmap</div>
+      <div id="filename-display" class="filename" title="Cliquer pour renommer">plan_sans_titre.forg</div>
       <div class="actions">
         <button class="btn-title" id="btnUndo" title="Ctrl+Z">↩ Undo</button>
         <button class="btn-title" id="btnRedo" title="Ctrl+Y">↪ Redo</button>
         <button class="btn-title danger" id="btnResetProject" title="Reset project">🗑 Reset</button>
         <button class="btn-title" id="btnLoad">📂 Load</button>
         <button class="btn-title" id="btnSave">💾 Save</button>
+        <button class="btn-title" id="btnExportPng">⬇ Export PNG</button>
         <button class="btn-title primary" id="btnExportSvg">⬇ Export SVG</button>
       </div>
     </header>
@@ -95,6 +96,7 @@
         </label>
 
         <button id="btnToggleZones" class="btn-title">Show zones</button>
+        <button id="btnToggleFurnitureLabels" class="btn-title">Show furniture labels</button>
 
         <div class="legacy-controls" hidden>
           <select id="zoneShapeSelect" class="p-select">
@@ -133,7 +135,7 @@
     </footer>
   </div>
 
-  <input id="fileLoad" type="file" hidden accept=".bmap,.json" />
+  <input id="fileLoad" type="file" hidden accept=".forg,.json" />
   <input id="fileFurniture" type="file" hidden accept=".json" />
 
   <script src="./src/js/constants.js"></script>

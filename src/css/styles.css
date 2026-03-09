@@ -72,6 +72,7 @@ html, body {
   padding: 3px 10px;
   min-width: 170px;
   text-align: center;
+  cursor: pointer;
 }
 
 .actions {
@@ -681,8 +682,7 @@ html, body {
   stroke-width: 2;
 }
 
-.furniture-pixel-cell,
-.furniture-pixel-frame {
+.furniture-pixel-cell {
   shape-rendering: crispEdges;
 }
 
@@ -702,12 +702,91 @@ html, body {
   pointer-events: all;
 }
 
+.opening-hit-handle {
+  fill: transparent;
+  stroke: transparent;
+  pointer-events: all;
+}
+
 .opening-handle.door {
   stroke: #b45309;
 }
 
 .opening-handle.window {
   stroke: #0284c7;
+}
+
+.rotation-compass {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: 4px auto 2px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, #ffffff 0 26px, #f1f5f9 26px 100%);
+  border: 1px solid #cbd5e1;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.compass-guides {
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  background:
+    repeating-conic-gradient(
+      from -90deg,
+      rgba(30, 41, 59, 0.22) 0deg 1.2deg,
+      transparent 1.2deg 22.5deg
+    );
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.compass-ring {
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  border: 1px dashed #94a3b8;
+}
+
+.compass-cardinal {
+  position: absolute;
+  font-size: 10px;
+  font-weight: 700;
+  color: #1e3a8a;
+  pointer-events: none;
+}
+
+.compass-cardinal.north { left: 50%; top: 6px; transform: translateX(-50%); }
+.compass-cardinal.east { right: 8px; top: 50%; transform: translateY(-50%); }
+.compass-cardinal.south { left: 50%; bottom: 6px; transform: translateX(-50%); }
+.compass-cardinal.west { left: 8px; top: 50%; transform: translateY(-50%); }
+
+.compass-needle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 44px;
+  transform-origin: 50% 100%;
+  background: linear-gradient(180deg, #2563eb 0%, #93c5fd 100%);
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.45);
+  pointer-events: none;
+}
+
+.compass-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #1e3a8a;
+  box-shadow: 0 0 0 2px #ffffff;
+  pointer-events: none;
 }
 
 #context-bar {
