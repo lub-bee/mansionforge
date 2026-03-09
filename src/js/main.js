@@ -245,6 +245,7 @@ const ui = {
   contextBar: document.getElementById("context-bar"),
   btnToggleGrid: document.getElementById("btnToggleGrid"),
   btnToggleZones: document.getElementById("btnToggleZones"),
+  btnToggleFurnitureLabels: document.getElementById("btnToggleFurnitureLabels"),
   btnToggleSnap: document.getElementById("btnToggleSnap"),
   gridSize: document.getElementById("gridSize"),
   zoneShapeSelect: document.getElementById("zoneShapeSelect"),
@@ -254,6 +255,7 @@ const ui = {
   btnUndo: document.getElementById("btnUndo"),
   btnRedo: document.getElementById("btnRedo"),
   btnResetProject: document.getElementById("btnResetProject"),
+  btnExportPng: document.getElementById("btnExportPng"),
   btnExportSvg: document.getElementById("btnExportSvg"),
   btnSave: document.getElementById("btnSave"),
   btnLoad: document.getElementById("btnLoad"),
@@ -274,6 +276,7 @@ const ui = {
   scaleInfo: document.getElementById("scale-info"),
   fileLoad: document.getElementById("fileLoad"),
   fileFurniture: document.getElementById("fileFurniture"),
+  filenameDisplay: document.getElementById("filename-display"),
   tabs: [...document.querySelectorAll(".tabs button")],
   tabProperties: document.getElementById("tab-properties"),
   tabZones: document.getElementById("tab-zones"),
@@ -290,6 +293,7 @@ const app = {
     panY: 0,
     showGrid: true,
     showZones: true,
+    showFurnitureLabels: true,
     snap: true
   },
   history: {
@@ -297,6 +301,7 @@ const app = {
     future: []
   },
   selection: [],
+  projectFileName: "plan_sans_titre.forg",
   tool: "select",
   zoneShape: "rect",
   activeTab: "properties",
@@ -366,6 +371,12 @@ function bindUI() {
       renderAll();
     });
   }
+  if (ui.btnToggleFurnitureLabels) {
+    ui.btnToggleFurnitureLabels.addEventListener("click", () => {
+      app.view.showFurnitureLabels = !app.view.showFurnitureLabels;
+      renderAll();
+    });
+  }
 
   ui.btnToggleSnap.addEventListener("click", () => {
     app.view.snap = !app.view.snap;
@@ -395,6 +406,7 @@ function bindUI() {
   ui.btnSave.addEventListener("click", saveBmap);
   ui.btnLoad.addEventListener("click", () => ui.fileLoad.click());
   ui.fileLoad.addEventListener("change", handleLoadFile);
+  ui.btnExportPng.addEventListener("click", exportPng);
   ui.btnExportSvg.addEventListener("click", exportSvg);
   ui.btnImportFurniture.addEventListener("click", () => ui.fileFurniture.click());
   ui.fileFurniture.addEventListener("change", handleFurnitureImport);
@@ -425,9 +437,17 @@ function bindUI() {
 
   if (ui.btnZoomIn) ui.btnZoomIn.addEventListener("click", () => zoomAtScreenCenter(1.2));
   if (ui.btnZoomOut) ui.btnZoomOut.addEventListener("click", () => zoomAtScreenCenter(1 / 1.2));
+  if (ui.filenameDisplay) {
+    ui.filenameDisplay.addEventListener("click", renameProjectFileName);
+  }
 }
 
 function onKeyDown(e) {
+  const key = String(e.key || "");
+  const keyLower = key.toLowerCase();
+  const ctrlOrMeta = e.ctrlKey || e.metaKey;
+  const isTyping = isTypingTarget(e.target);
+
   if (e.key === " ") {
     if (ui.canvasWrap) ui.canvasWrap.classList.add("pan-mode");
     ui.canvas.classList.add("panning");
@@ -439,15 +459,52 @@ function onKeyDown(e) {
     return;
   }
 
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+  if (ctrlOrMeta && keyLower === "z") {
     e.preventDefault();
     if (e.shiftKey) redo();
     else undo();
   }
 
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+  if (ctrlOrMeta && keyLower === "y") {
     e.preventDefault();
     redo();
+  }
+
+  if (ctrlOrMeta && keyLower === "s") {
+    e.preventDefault();
+    saveBmap();
+    return;
+  }
+
+  if (ctrlOrMeta && keyLower === "p") {
+    e.preventDefault();
+    exportPng();
+    return;
+  }
+
+  if (isTyping) return;
+
+  if (key === "Delete" || key === "Backspace") {
+    e.preventDefault();
+    deleteCurrentSelection();
+    return;
+  }
+
+  if (keyLower === "m") {
+    setTool("select");
+    return;
+  }
+  if (keyLower === "b") {
+    setTool("furniture");
+    return;
+  }
+  if (keyLower === "n") {
+    setTool("node");
+    return;
+  }
+  if (keyLower === "z") {
+    setTool("zone");
+    return;
   }
 
   if (e.key === "Escape") {
@@ -466,6 +523,12 @@ function onKeyUp(e) {
     ui.canvas.classList.remove("panning");
     app.transient.isPanning = false;
   }
+}
+
+function isTypingTarget(target) {
+  if (!target) return false;
+  const tag = String(target.tagName || "").toLowerCase();
+  return tag === "input" || tag === "textarea" || tag === "select" || !!target.isContentEditable;
 }
 
 function cancelPendingVectorTrace() {
@@ -701,9 +764,11 @@ function pushHistory() {
 function captureState() {
   return deepClone({
     state: app.state,
+    projectFileName: app.projectFileName,
     view: {
       showGrid: app.view.showGrid,
       showZones: app.view.showZones,
+      showFurnitureLabels: app.view.showFurnitureLabels,
       snap: app.view.snap
     },
     tool: app.tool
@@ -712,8 +777,10 @@ function captureState() {
 
 function restoreSnapshot(snapshot) {
   app.state = deepClone(snapshot.state);
+  app.projectFileName = sanitizeProjectFileName(snapshot.projectFileName);
   app.view.showGrid = snapshot.view.showGrid;
   app.view.showZones = snapshot.view.showZones !== false;
+  app.view.showFurnitureLabels = snapshot.view.showFurnitureLabels !== false;
   app.view.snap = snapshot.view.snap;
   app.tool = snapshot.tool || "select";
   app.selection = [];
@@ -755,7 +822,9 @@ function resetProjectWithConfirmation() {
   app.view.panY = 0;
   app.view.showGrid = true;
   app.view.showZones = true;
+  app.view.showFurnitureLabels = true;
   app.view.snap = true;
+  app.projectFileName = "plan_sans_titre.forg";
   app.vectorPreset = {
     type: "wall",
     wallStyle: "pencil",
@@ -780,11 +849,29 @@ function clearSelection() {
 function handleSelection(entity, additive) {
   if (!additive) {
     app.selection = [entity];
+    setPreferredTabForEntity(entity);
     return;
   }
   const idx = app.selection.findIndex((s) => s.kind === entity.kind && s.id === entity.id);
   if (idx >= 0) app.selection.splice(idx, 1);
   else app.selection.push(entity);
+}
+
+function setPreferredTabForEntity(entity) {
+  if (!entity) return;
+  if (entity.kind === "zone") {
+    app.activeTab = "zones";
+    return;
+  }
+  app.activeTab = "properties";
+}
+
+function deleteCurrentSelection() {
+  if (!app.selection.length) return;
+  mutate(() => {
+    const targets = [...app.selection];
+    for (const target of targets) deleteEntity(target);
+  });
 }
 
 function startMoveSelection(worldPoint) {
@@ -802,13 +889,33 @@ function startMoveSelection(worldPoint) {
     }
     if (item.kind === "furniture") {
       const furn = layer.furniture.find((f) => f.id === item.id);
-      if (furn) entries.push({ kind: "furniture", id: furn.id, x: furn.x, y: furn.y });
+      if (furn) {
+        entries.push({
+          kind: "furniture",
+          id: furn.id,
+          x: furn.x,
+          y: furn.y,
+          furnitureId: furn.furnitureId,
+          rotation: normalizeAngle(furn.rotation),
+          snapMode: furn.snapMode === "none" ? "none" : "grid"
+        });
+      }
     }
     if (item.kind === "opening") {
       const ref = findOpeningInLayer(layer, item.id);
       if (ref) {
         const p = pointOnSegmentAtT(ref.a, ref.b, ref.opening.t);
-        entries.push({ kind: "opening", id: item.id, x: p.x, y: p.y });
+        const dir = unitDirection(ref.a, ref.b);
+        const half = Math.max(5, ref.opening.widthCells * app.state.grid.cellSize * 0.28);
+        entries.push({
+          kind: "opening",
+          id: item.id,
+          x: p.x,
+          y: p.y,
+          snapMode: ref.opening.snapMode === "edges" ? "edges" : "center",
+          edgeStart: { x: p.x - dir.x * half, y: p.y - dir.y * half },
+          edgeEnd: { x: p.x + dir.x * half, y: p.y + dir.y * half }
+        });
       }
     }
   }
@@ -822,13 +929,15 @@ function updateMoveSelection(worldPoint) {
   const layer = getActiveLayer();
   if (!layer || !app.transient.moving) return;
 
-  let dx = worldPoint.x - app.transient.moving.start.x;
-  let dy = worldPoint.y - app.transient.moving.start.y;
+  const rawDx = worldPoint.x - app.transient.moving.start.x;
+  const rawDy = worldPoint.y - app.transient.moving.start.y;
+  let dx = rawDx;
+  let dy = rawDy;
 
   if (app.view.snap) {
     const cs = app.state.grid.cellSize;
-    dx = Math.round(dx / cs) * cs;
-    dy = Math.round(dy / cs) * cs;
+    dx = Math.round(rawDx / cs) * cs;
+    dy = Math.round(rawDy / cs) * cs;
   }
 
   for (const entry of app.transient.moving.entries) {
@@ -841,13 +950,51 @@ function updateMoveSelection(worldPoint) {
     } else if (entry.kind === "furniture") {
       const furn = layer.furniture.find((f) => f.id === entry.id);
       if (furn) {
-        furn.x = entry.x + dx;
-        furn.y = entry.y + dy;
+        const shouldSnapFurniture = app.view.snap && entry.snapMode !== "none";
+        const nextCenter = shouldSnapFurniture
+          ? snapFurnitureCenterFromPoint(
+              { x: entry.x + rawDx, y: entry.y + rawDy },
+              entry.furnitureId,
+              entry.rotation
+            )
+          : { x: entry.x + rawDx, y: entry.y + rawDy };
+        furn.x = nextCenter.x;
+        furn.y = nextCenter.y;
       }
     } else if (entry.kind === "opening") {
-      moveOpeningToPoint(layer, entry.id, { x: entry.x + dx, y: entry.y + dy });
+      if (app.view.snap && entry.snapMode === "edges") {
+        const rawCenter = { x: entry.x + rawDx, y: entry.y + rawDy };
+        const snappedStart = snapToGrid({ x: entry.edgeStart.x + rawDx, y: entry.edgeStart.y + rawDy });
+        const snappedEnd = snapToGrid({ x: entry.edgeEnd.x + rawDx, y: entry.edgeEnd.y + rawDy });
+        const startCenter = openingCenterFromEdge(layer, entry.id, snappedStart, "start");
+        const endCenter = openingCenterFromEdge(layer, entry.id, snappedEnd, "end");
+        const ds = startCenter ? Math.hypot(startCenter.x - rawCenter.x, startCenter.y - rawCenter.y) : Number.POSITIVE_INFINITY;
+        const de = endCenter ? Math.hypot(endCenter.x - rawCenter.x, endCenter.y - rawCenter.y) : Number.POSITIVE_INFINITY;
+        if (ds <= de) moveOpeningToPointViaEdge(layer, entry.id, snappedStart, "start");
+        else moveOpeningToPointViaEdge(layer, entry.id, snappedEnd, "end");
+      } else {
+        const nextCenter = app.view.snap
+          ? snapToGrid({ x: entry.x + rawDx, y: entry.y + rawDy })
+          : { x: entry.x + dx, y: entry.y + dy };
+        moveOpeningToPoint(layer, entry.id, nextCenter);
+      }
     }
   }
+}
+
+function openingCenterFromEdge(layer, openingId, edgePoint, edgeKind) {
+  const ref = findOpeningInLayer(layer, openingId);
+  if (!ref) return null;
+  const dir = unitDirection(ref.a, ref.b);
+  const half = Math.max(5, ref.opening.widthCells * app.state.grid.cellSize * 0.28);
+  if (edgeKind === "start") return { x: edgePoint.x + dir.x * half, y: edgePoint.y + dir.y * half };
+  return { x: edgePoint.x - dir.x * half, y: edgePoint.y - dir.y * half };
+}
+
+function moveOpeningToPointViaEdge(layer, openingId, edgePoint, edgeKind) {
+  const center = openingCenterFromEdge(layer, openingId, edgePoint, edgeKind);
+  if (!center) return;
+  moveOpeningToPoint(layer, openingId, center);
 }
 
 function applySelectionRect(rect) {
@@ -1064,8 +1211,9 @@ function showContextBar(clientX, clientY, hits) {
 
   ui.contextBar.querySelectorAll(".ctx-pick").forEach((btn) => {
     btn.addEventListener("click", () => {
-      app.selection = [{ kind: btn.dataset.pickKind, id: btn.dataset.pickId }];
-      app.activeTab = "properties";
+      const entity = { kind: btn.dataset.pickKind, id: btn.dataset.pickId };
+      app.selection = [entity];
+      setPreferredTabForEntity(entity);
       hideContextBar();
       renderAll();
     });
@@ -1328,14 +1476,18 @@ function handleFurnitureToolClick(world) {
   const def = app.state.furnitureLibrary.find((f) => f.id === furnitureId);
   if (!def) return;
 
-  const p = maybeSnap(world);
+  const rotation = normalizeAngle(def.defaultRotation || 0);
+  const p = app.view.snap
+    ? snapFurnitureCenterFromPoint(world, def.id, rotation)
+    : world;
   mutate(() => {
     const item = {
       id: uid("furniture"),
       furnitureId: def.id,
       x: p.x,
       y: p.y,
-      rotation: normalizeAngle(def.defaultRotation || 0),
+      rotation,
+      snapMode: "grid",
       layerId: layer.id
     };
     layer.furniture.push(item);
@@ -1469,7 +1621,10 @@ function normalizeVectorOpenings(openings) {
         id: String(o.id || uid("open")),
         kind: o.kind === "door" ? "door" : "window",
         t: clamp(Number.isFinite(rawT) ? rawT : 0.5, 0.05, 0.95),
-        widthCells: clamp(Number.isFinite(rawW) ? rawW : (o.kind === "door" ? 1.2 : 1.0), 0.4, 3)
+        widthCells: clamp(Number.isFinite(rawW) ? rawW : (o.kind === "door" ? 1.2 : 1.0), 0.4, 3),
+        snapMode: o.snapMode === "edges" ? "edges" : "center",
+        leafSide: o.leafSide === "right" ? "right" : "left",
+        flip180: o.flip180 === true
       };
     })
     .sort((a, b) => a.t - b.t);
@@ -1481,7 +1636,10 @@ function addVectorOpening(vector, kind) {
     id: uid("open"),
     kind: kind === "door" ? "door" : "window",
     t: 0.5,
-    widthCells: kind === "door" ? 1.3 : 1.05
+    widthCells: kind === "door" ? 1.3 : 1.05,
+    snapMode: "center",
+    leafSide: "left",
+    flip180: false
   });
   redistributeVectorOpenings(openings);
   vector.openings = openings;
@@ -1863,6 +2021,44 @@ function snapToGrid(p) {
   };
 }
 
+function furnitureSizeInPixels(furnitureId) {
+  const def = furnitureDef(furnitureId);
+  const cs = app.state.grid.cellSize;
+  return {
+    w: (def?.width || 1) * cs,
+    h: (def?.height || 1) * cs
+  };
+}
+
+function rotatedVector(x, y, rotationDeg) {
+  const rad = (normalizeAngle(rotationDeg) * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return {
+    x: x * cos - y * sin,
+    y: x * sin + y * cos
+  };
+}
+
+function furnitureSnapAnchorOffset(furnitureId, rotationDeg) {
+  const size = furnitureSizeInPixels(furnitureId);
+  // Snap furniture by its local top-left corner instead of its center.
+  return rotatedVector(-size.w / 2, -size.h / 2, rotationDeg);
+}
+
+function snapFurnitureCenterFromPoint(centerPoint, furnitureId, rotationDeg) {
+  const offset = furnitureSnapAnchorOffset(furnitureId, rotationDeg);
+  const anchorPoint = {
+    x: centerPoint.x + offset.x,
+    y: centerPoint.y + offset.y
+  };
+  const snappedAnchor = snapToGrid(anchorPoint);
+  return {
+    x: snappedAnchor.x - offset.x,
+    y: snappedAnchor.y - offset.y
+  };
+}
+
 function getActiveLayer() {
   return findLayerById(app.state.activeLayerId, app.state.tree);
 }
@@ -2010,6 +2206,10 @@ function renderToolbarState() {
     ui.btnToggleZones.textContent = app.view.showZones ? "Hide zones" : "Show zones";
     ui.btnToggleZones.classList.toggle("active", app.view.showZones);
   }
+  if (ui.btnToggleFurnitureLabels) {
+    ui.btnToggleFurnitureLabels.textContent = app.view.showFurnitureLabels ? "Hide furniture labels" : "Show furniture labels";
+    ui.btnToggleFurnitureLabels.classList.toggle("active", app.view.showFurnitureLabels);
+  }
   ui.btnToggleSnap.textContent = app.view.snap ? "SNAP" : "FREE";
   ui.btnToggleSnap.classList.toggle("active", app.view.snap);
   ui.gridSize.value = String(app.state.grid.cellSize);
@@ -2050,6 +2250,7 @@ function renderToolbarState() {
   if (ui.activeLayerName) ui.activeLayerName.textContent = activeLayer?.name || "—";
   if (ui.histCount) ui.histCount.textContent = `${app.history.past.length}`;
   if (ui.scaleInfo) ui.scaleInfo.textContent = `1 square ≈ ${CELL_SIZE_CM} cm IRL`;
+  if (ui.filenameDisplay) ui.filenameDisplay.textContent = app.projectFileName;
   if (activeLayer) {
     if (ui.statNodes) ui.statNodes.textContent = `${activeLayer.nodes.length}`;
     if (ui.statVecs) ui.statVecs.textContent = `${activeLayer.vectors.length}`;
@@ -2066,6 +2267,15 @@ function renderToolOptionsPanel() {
 
   if (app.tool === "floor") {
     ui.toolOptions.innerHTML = `
+      <div class="tool-options-head">Floor Shapes</div>
+      <div class="tile-grid">
+        ${ZONE_SHAPE_OPTIONS.map((s) => `
+          <button class="opt-tile ${app.zoneShape === s.id ? "active" : ""}" data-floor-shape="${s.id}">
+            ${zoneShapePreviewSvg(s.id)}
+            <span class="opt-label">${escapeHtml(s.label)}</span>
+          </button>
+        `).join("")}
+      </div>
       <div class="tool-options-head">Floor Textures</div>
       <div class="tile-grid">
         ${FLOOR_TEXTURES.map((f) => `
@@ -2076,6 +2286,16 @@ function renderToolOptionsPanel() {
         `).join("")}
       </div>
     `;
+    [...ui.toolOptions.querySelectorAll("[data-floor-shape]")].forEach((btn) => {
+      btn.addEventListener("click", () => {
+        app.zoneShape = btn.dataset.floorShape;
+        ui.zoneShapeSelect.value = app.zoneShape;
+        app.transient.pendingZoneAnchors = [];
+        app.transient.pendingFloorAnchors = [];
+        app.transient.lasso = null;
+        renderAll();
+      });
+    });
     [...ui.toolOptions.querySelectorAll("[data-floor-texture]")].forEach((btn) => {
       btn.addEventListener("click", () => {
         ui.floorTextureSelect.value = btn.dataset.floorTexture;
@@ -2473,6 +2693,24 @@ function wallStyleStroke(styleId, baseColor, thickness) {
   return base;
 }
 
+function rotate90(vec, sign) {
+  return sign >= 0
+    ? { x: -vec.y, y: vec.x }
+    : { x: vec.y, y: -vec.x };
+}
+
+function doorSymbolGeometry(s, e, opening) {
+  const hingeAtStart = (opening.leafSide !== "right") !== !!opening.flip180;
+  const hinge = hingeAtStart ? s : e;
+  const leafBase = hingeAtStart ? e : s;
+  const baseVec = { x: leafBase.x - hinge.x, y: leafBase.y - hinge.y };
+  const swingSign = opening.flip180 ? -1 : 1;
+  const openVec = rotate90(baseVec, swingSign);
+  const leafOpenEnd = { x: hinge.x + openVec.x, y: hinge.y + openVec.y };
+  const radius = Math.hypot(baseVec.x, baseVec.y);
+  return { hinge, leafBase, leafOpenEnd, swingSign, radius };
+}
+
 function renderVectorOpenings(group, vector, a, b, thickness) {
   const openings = normalizeVectorOpenings(vector.openings);
   if (!openings.length) return;
@@ -2486,54 +2724,97 @@ function renderVectorOpenings(group, vector, a, b, thickness) {
     const half = Math.max(5, opening.widthCells * app.state.grid.cellSize * 0.28);
     const s = { x: c.x - dir.x * half, y: c.y - dir.y * half };
     const e = { x: c.x + dir.x * half, y: c.y + dir.y * half };
+    const jambHalf = Math.max(2.2, thickness * 0.48);
+    const onWallWidth = Math.max(1, thickness);
+    group.appendChild(createSvg("line", {
+      x1: s.x - n.x * jambHalf, y1: s.y - n.y * jambHalf,
+      x2: s.x + n.x * jambHalf, y2: s.y + n.y * jambHalf,
+      stroke: "#334155",
+      "stroke-width": Math.max(1, thickness * 0.42)
+    }));
+    group.appendChild(createSvg("line", {
+      x1: e.x - n.x * jambHalf, y1: e.y - n.y * jambHalf,
+      x2: e.x + n.x * jambHalf, y2: e.y + n.y * jambHalf,
+      stroke: "#334155",
+      "stroke-width": Math.max(1, thickness * 0.42)
+    }));
 
     if (opening.kind === "door") {
       group.appendChild(createSvg("line", {
         x1: s.x, y1: s.y, x2: e.x, y2: e.y,
-        stroke: "#b45309",
-        "stroke-width": Math.max(1.3, thickness * 0.58),
+        stroke: "#92400e",
+        "stroke-width": onWallWidth,
+        "stroke-linecap": "round",
+        opacity: 0.9
+      }));
+      const geo = doorSymbolGeometry(s, e, opening);
+      const sweepFlag = geo.swingSign > 0 ? 1 : 0;
+      const fillPath = `M ${n2(geo.hinge.x)} ${n2(geo.hinge.y)} L ${n2(geo.leafBase.x)} ${n2(geo.leafBase.y)} A ${n2(geo.radius)} ${n2(geo.radius)} 0 0 ${sweepFlag} ${n2(geo.leafOpenEnd.x)} ${n2(geo.leafOpenEnd.y)} Z`;
+      const arcPath = `M ${n2(geo.leafBase.x)} ${n2(geo.leafBase.y)} A ${n2(geo.radius)} ${n2(geo.radius)} 0 0 ${sweepFlag} ${n2(geo.leafOpenEnd.x)} ${n2(geo.leafOpenEnd.y)}`;
+      group.appendChild(createSvg("path", {
+        d: fillPath,
+        fill: "rgba(96,165,250,0.22)",
+        opacity: 0.85
+      }));
+      group.appendChild(createSvg("line", {
+        x1: geo.hinge.x, y1: geo.hinge.y, x2: geo.leafBase.x, y2: geo.leafBase.y,
+        stroke: "#92400e",
+        "stroke-width": Math.max(1.2, thickness * 0.38),
         "stroke-linecap": "round"
       }));
-
-      const arcR = half * 0.95;
-      const arcEnd = { x: s.x + n.x * arcR, y: s.y + n.y * arcR };
-      const arc = createSvg("path", {
-        d: `M ${n2(s.x)} ${n2(s.y)} A ${n2(arcR)} ${n2(arcR)} 0 0 1 ${n2(arcEnd.x)} ${n2(arcEnd.y)}`,
+      group.appendChild(createSvg("path", {
+        d: arcPath,
         fill: "none",
         stroke: "#d97706",
-        "stroke-width": Math.max(1, thickness * 0.36),
-        opacity: 0.8
-      });
-      group.appendChild(arc);
+        "stroke-width": Math.max(1, thickness * 0.3),
+        opacity: 0.9
+      }));
     } else {
       group.appendChild(createSvg("line", {
         x1: s.x, y1: s.y, x2: e.x, y2: e.y,
-        stroke: "#0284c7",
-        "stroke-width": Math.max(1.3, thickness * 0.52),
+        stroke: "#0f766e",
+        "stroke-width": onWallWidth,
+        "stroke-linecap": "round",
+        opacity: 0.95
+      }));
+      const frameOffset = Math.max(1.2, thickness * 0.28);
+      group.appendChild(createSvg("line", {
+        x1: s.x - n.x * frameOffset, y1: s.y - n.y * frameOffset,
+        x2: e.x - n.x * frameOffset, y2: e.y - n.y * frameOffset,
+        stroke: "#0f766e",
+        "stroke-width": Math.max(1, thickness * 0.32),
         "stroke-linecap": "round"
       }));
-      const tickHalf = Math.max(2, thickness * 0.4);
       group.appendChild(createSvg("line", {
-        x1: s.x - n.x * tickHalf, y1: s.y - n.y * tickHalf,
-        x2: s.x + n.x * tickHalf, y2: s.y + n.y * tickHalf,
-        stroke: "#0ea5e9", "stroke-width": 1.1, opacity: 0.85
-      }));
-      group.appendChild(createSvg("line", {
-        x1: e.x - n.x * tickHalf, y1: e.y - n.y * tickHalf,
-        x2: e.x + n.x * tickHalf, y2: e.y + n.y * tickHalf,
-        stroke: "#0ea5e9", "stroke-width": 1.1, opacity: 0.85
+        x1: s.x + n.x * frameOffset, y1: s.y + n.y * frameOffset,
+        x2: e.x + n.x * frameOffset, y2: e.y + n.y * frameOffset,
+        stroke: "#0f766e",
+        "stroke-width": Math.max(1, thickness * 0.32),
+        "stroke-linecap": "round"
       }));
     }
 
-    const handle = createSvg("circle", {
+    const hitHandle = createSvg("circle", {
       cx: c.x,
       cy: c.y,
-      r: 3.6,
-      class: `opening-handle ${opening.kind}${isSelected("opening", opening.id) ? " selected" : ""}`
+      r: 8,
+      class: "opening-hit-handle"
     });
-    handle.dataset.kind = "opening";
-    handle.dataset.id = opening.id;
-    group.appendChild(handle);
+    hitHandle.dataset.kind = "opening";
+    hitHandle.dataset.id = opening.id;
+    group.appendChild(hitHandle);
+
+    if (isSelected("opening", opening.id)) {
+      const handle = createSvg("circle", {
+        cx: c.x,
+        cy: c.y,
+        r: 2.6,
+        class: `opening-handle ${opening.kind} selected`
+      });
+      handle.dataset.kind = "opening";
+      handle.dataset.id = opening.id;
+      group.appendChild(handle);
+    }
   }
 }
 
@@ -2643,20 +2924,6 @@ function renderFurniturePixelArt(model, furn, def, selected) {
     }
   }
 
-  const frame = createSvg("rect", {
-    x: left,
-    y: top,
-    width: w,
-    height: h,
-    fill: "none",
-    stroke: "#334155",
-    "stroke-width": Math.max(1, cs * 0.06),
-    class: selected ? "selected furniture-pixel-frame" : "furniture-pixel-frame"
-  });
-  frame.dataset.kind = "furniture";
-  frame.dataset.id = furn.id;
-  pixels.appendChild(frame);
-
   model.appendChild(pixels);
 }
 
@@ -2727,26 +2994,30 @@ function renderScene() {
     renderFurniturePixelArt(model, furn, def, isSelected("furniture", furn.id));
     g.appendChild(model);
 
-    const txt = createSvg("text", {
-      x: furn.x,
-      y: furn.y + h / 2 + 10,
-      "text-anchor": "middle",
-      "font-size": 8,
-      fill: "#0f172a",
-      "pointer-events": "none"
-    });
-    txt.textContent = (def?.label || furn.furnitureId || "?").slice(0, 12);
-    g.appendChild(txt);
+    if (app.view.showFurnitureLabels) {
+      const txt = createSvg("text", {
+        x: furn.x,
+        y: furn.y + h / 2 + 10,
+        "text-anchor": "middle",
+        "font-size": 8,
+        fill: "#0f172a",
+        "pointer-events": "none"
+      });
+      txt.textContent = (def?.label || furn.furnitureId || "?").slice(0, 12);
+      g.appendChild(txt);
+    }
 
-    const centerHandle = createSvg("circle", {
-      cx: furn.x,
-      cy: furn.y,
-      r: 3.2,
-      class: "furniture-center-handle"
-    });
-    centerHandle.dataset.kind = "furniture";
-    centerHandle.dataset.id = furn.id;
-    g.appendChild(centerHandle);
+    if (isSelected("furniture", furn.id)) {
+      const centerHandle = createSvg("circle", {
+        cx: furn.x,
+        cy: furn.y,
+        r: 2.2,
+        class: "furniture-center-handle selected"
+      });
+      centerHandle.dataset.kind = "furniture";
+      centerHandle.dataset.id = furn.id;
+      g.appendChild(centerHandle);
+    }
 
     furnitureG.appendChild(g);
   }
@@ -2757,7 +3028,7 @@ function renderScene() {
       const ring = createSvg("circle", {
         cx: node.x,
         cy: node.y,
-        r: 9,
+        r: 7,
         class: "node-selected-ring"
       });
       const anim = createSvg("animateTransform", {
@@ -2775,10 +3046,10 @@ function renderScene() {
     const circle = createSvg("circle", {
       cx: node.x,
       cy: node.y,
-      r: 4.5,
+      r: 3.4,
       fill: isNodeSelected ? "#2563eb" : "#1e293b",
       stroke: "#fff",
-      "stroke-width": 1.4
+      "stroke-width": 1.1
     });
     circle.dataset.kind = "node";
     circle.dataset.id = node.id;
@@ -3345,6 +3616,9 @@ function renderPropertiesPanel() {
         <h4>Opening</h4>
         <div class="row"><label>Type</label><select id="propOpeningKind"><option value="door" ${opening.kind === "door" ? "selected" : ""}>Door</option><option value="window" ${opening.kind === "window" ? "selected" : ""}>Window</option></select></div>
         <div class="row"><label>Width</label><input id="propOpeningWidth" type="number" min="0.4" max="3" step="0.1" value="${clamp(Number(opening.widthCells) || 1, 0.4, 3)}"></div>
+        <div class="row"><label>Snap</label><select id="propOpeningSnapMode"><option value="center" ${opening.snapMode === "edges" ? "" : "selected"}>Center</option><option value="edges" ${opening.snapMode === "edges" ? "selected" : ""}>Extremities</option></select></div>
+        <div class="row"><label>Leaf</label><button id="propDoorLeafInvert" ${opening.kind === "door" ? "" : "disabled"}>Inverse</button></div>
+        <div class="row"><label>Rotate</label><button id="propDoorRotateInvert" ${opening.kind === "door" ? "" : "disabled"}>Inverse</button></div>
         <div class="row"><label>Position</label><input id="propOpeningT" type="range" min="0.05" max="0.95" step="0.01" value="${clamp(Number(opening.t) || 0.5, 0.05, 0.95)}"></div>
         <div class="row"><label>Vector</label><input value="${escapeAttr(vector.id)}" readonly></div>
         <div class="row single"><button id="propDeleteEntity" class="danger">Delete this opening</button></div>
@@ -3361,6 +3635,24 @@ function renderPropertiesPanel() {
       const r = findOpeningInLayer(layer, opening.id);
       if (!r) return;
       r.opening.widthCells = clamp(Number(e.target.value) || 1, 0.4, 3);
+      r.vector.openings = normalizeVectorOpenings(r.vector.openings).sort((a, b) => a.t - b.t);
+    }));
+    document.getElementById("propOpeningSnapMode").addEventListener("change", (e) => mutate(() => {
+      const r = findOpeningInLayer(layer, opening.id);
+      if (!r) return;
+      r.opening.snapMode = e.target.value === "edges" ? "edges" : "center";
+      r.vector.openings = normalizeVectorOpenings(r.vector.openings).sort((a, b) => a.t - b.t);
+    }));
+    document.getElementById("propDoorLeafInvert").addEventListener("click", () => mutate(() => {
+      const r = findOpeningInLayer(layer, opening.id);
+      if (!r || r.opening.kind !== "door") return;
+      r.opening.leafSide = r.opening.leafSide === "right" ? "left" : "right";
+      r.vector.openings = normalizeVectorOpenings(r.vector.openings).sort((a, b) => a.t - b.t);
+    }));
+    document.getElementById("propDoorRotateInvert").addEventListener("click", () => mutate(() => {
+      const r = findOpeningInLayer(layer, opening.id);
+      if (!r || r.opening.kind !== "door") return;
+      r.opening.flip180 = !r.opening.flip180;
       r.vector.openings = normalizeVectorOpenings(r.vector.openings).sort((a, b) => a.t - b.t);
     }));
     document.getElementById("propOpeningT").addEventListener("input", (e) => mutate(() => {
@@ -3384,15 +3676,33 @@ function renderPropertiesPanel() {
       <div class="section">
         <h4>Furniture</h4>
         <div class="row"><label>Name</label><input value="${escapeAttr(def?.label || f.furnitureId)}" readonly></div>
-        <div class="row"><label>Rotation</label><input id="propFurnitureRot" type="number" min="0" max="359" step="1" value="${normalizeAngle(f.rotation)}"></div>
+        <div class="row"><label>Snap</label><select id="propFurnitureSnapMode"><option value="grid" ${f.snapMode === "none" ? "" : "selected"}>Grid</option><option value="none" ${f.snapMode === "none" ? "selected" : ""}>No snap</option></select></div>
+        <div class="row single"><label>Orientation</label></div>
+        <div class="row single">
+          <div id="propFurnitureCompass" class="rotation-compass">
+            <div class="compass-guides"></div>
+            <div class="compass-ring"></div>
+            <div class="compass-cardinal north">N</div>
+            <div class="compass-cardinal east">E</div>
+            <div class="compass-cardinal south">S</div>
+            <div class="compass-cardinal west">W</div>
+            <div class="compass-needle" id="propFurnitureCompassNeedle"></div>
+            <div class="compass-core"></div>
+          </div>
+          <div class="hint" id="propFurnitureRotValue">${Math.round(normalizeAngle(f.rotation))}°</div>
+        </div>
         <div class="row"><label>Layer</label><input value="${escapeAttr(layer.name)}" readonly></div>
         <div class="row single"><button id="propDeleteEntity" class="danger">Delete this furniture</button></div>
       </div>
     `;
 
-    document.getElementById("propFurnitureRot").addEventListener("change", (e) => {
-      mutate(() => { f.rotation = normalizeAngle(Number(e.target.value) || 0); });
-    });
+    const compass = document.getElementById("propFurnitureCompass");
+    const needle = document.getElementById("propFurnitureCompassNeedle");
+    const value = document.getElementById("propFurnitureRotValue");
+    attachFurnitureCompass(compass, needle, value, f);
+    document.getElementById("propFurnitureSnapMode").addEventListener("change", (e) => mutate(() => {
+      f.snapMode = e.target.value === "none" ? "none" : "grid";
+    }));
     document.getElementById("propDeleteEntity").addEventListener("click", () => {
       mutate(() => deleteEntity({ kind: "furniture", id: f.id }));
     });
@@ -3510,8 +3820,9 @@ function renderZonesPanel() {
 
   [...ui.tabZones.querySelectorAll("[data-zone-select]")].forEach((btn) => {
     btn.addEventListener("click", () => {
-      app.selection = [{ kind: "zone", id: btn.dataset.zoneSelect }];
-      app.activeTab = "properties";
+      const entity = { kind: "zone", id: btn.dataset.zoneSelect };
+      app.selection = [entity];
+      setPreferredTabForEntity(entity);
       renderAll();
     });
   });
@@ -3526,6 +3837,7 @@ function renderZonesPanel() {
 }
 
 function renderLayersPanel() {
+  const furnitureRows = collectFurnitureByLayerRows();
   ui.tabLayers.innerHTML = `
     <div class="section">
       <h4>Layers / Groups</h4>
@@ -3533,6 +3845,10 @@ function renderLayersPanel() {
       <div class="row single"><button id="btnAddRootGroup">+ Root group</button></div>
     </div>
     <div id="layerTree"></div>
+    <div class="section">
+      <h4>Furniture by layer</h4>
+      ${furnitureRows || `<div class="hint">No furniture.</div>`}
+    </div>
   `;
 
   const treeContainer = document.getElementById("layerTree");
@@ -3545,6 +3861,29 @@ function renderLayersPanel() {
   document.getElementById("btnAddRootGroup").addEventListener("click", () => {
     mutate(() => addGroup(null));
   });
+}
+
+function collectFurnitureByLayerRows() {
+  const rows = [];
+  walkTree(app.state.tree, (node) => {
+    if (node.type !== "layer") return;
+    rows.push({ layerName: node.name, items: node.furniture || [] });
+  });
+
+  return rows.map((row) => {
+    const itemRows = row.items.length
+      ? row.items.map((f) => {
+          const label = furnitureDef(f.furnitureId)?.label || f.furnitureId;
+          return `<div class="hint">${escapeHtml(label)} <span class="muted">(${escapeHtml(f.id)})</span></div>`;
+        }).join("")
+      : `<div class="hint">No furniture.</div>`;
+    return `
+      <div class="section" style="margin-bottom:8px;">
+        <div><strong>${escapeHtml(row.layerName)}</strong> <span class="muted">(${row.items.length})</span></div>
+        ${itemRows}
+      </div>
+    `;
+  }).join("");
 }
 
 function renderTreeNodes(nodes, container, depth) {
@@ -3613,6 +3952,58 @@ function renderTreeNodes(nodes, container, depth) {
       renderTreeNodes(node.children || [], container, depth + 1);
     }
   }
+}
+
+function angleFromCompassCenter(compassEl, clientX, clientY) {
+  const rect = compassEl.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const dx = clientX - cx;
+  const dy = clientY - cy;
+  const angle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+  return normalizeAngle(angle);
+}
+
+function snapCompassAngle(angle) {
+  const step = 22.5;
+  return normalizeAngle(Math.round(angle / step) * step);
+}
+
+function renderCompassNeedle(needleEl, valueEl, rotation) {
+  const angle = normalizeAngle(rotation);
+  if (needleEl) needleEl.style.transform = `translate(-50%, -100%) rotate(${angle}deg)`;
+  if (valueEl) valueEl.textContent = `${Math.round(angle)}°`;
+}
+
+function attachFurnitureCompass(compassEl, needleEl, valueEl, furniture) {
+  if (!compassEl || !furniture) return;
+  renderCompassNeedle(needleEl, valueEl, furniture.rotation);
+
+  let dragging = false;
+  const onMove = (e) => {
+    if (!dragging) return;
+    furniture.rotation = snapCompassAngle(angleFromCompassCenter(compassEl, e.clientX, e.clientY));
+    renderCompassNeedle(needleEl, valueEl, furniture.rotation);
+    renderScene();
+  };
+  const onUp = () => {
+    if (!dragging) return;
+    dragging = false;
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    persistAutosave();
+  };
+
+  compassEl.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    pushHistory();
+    dragging = true;
+    furniture.rotation = snapCompassAngle(angleFromCompassCenter(compassEl, e.clientX, e.clientY));
+    renderCompassNeedle(needleEl, valueEl, furniture.rotation);
+    renderScene();
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  });
 }
 
 function addLayer(parentGroupId) {
@@ -3731,6 +4122,7 @@ function autoFurnishZone(layer, zone, roomType) {
       x: p.x,
       y: p.y,
       rotation: normalizeAngle((item.rotation ?? def.defaultRotation ?? 0) + randomQuarterTurn),
+      snapMode: "grid",
       layerId: layer.id
     });
   }
@@ -3807,11 +4199,12 @@ function appendFurnitureDefs(incoming) {
 function saveBmap() {
   const payload = {
     version: "1.3",
+    projectFileName: app.projectFileName,
     grid: deepClone(app.state.grid),
     tree: deepClone(app.state.tree),
     furnitureLibrary: deepClone(app.state.furnitureLibrary)
   };
-  downloadTextFile(`${slugify(projectName()) || "mansionforge"}.bmap`, JSON.stringify(payload, null, 2));
+  downloadTextFile(app.projectFileName, JSON.stringify(payload, null, 2));
 }
 
 function handleLoadFile(e) {
@@ -3826,6 +4219,7 @@ function handleLoadFile(e) {
       const normalized = normalizeLoadedProject(parsed);
       pushHistory();
       app.state = normalized;
+      app.projectFileName = sanitizeProjectFileName(parsed.projectFileName || file.name || app.projectFileName);
       app.selection = [];
       app.transient.pendingVectorNodeId = null;
       app.transient.pendingZoneAnchors = [];
@@ -3914,6 +4308,7 @@ function normalizeTree(nodes) {
         x: Number(f.x) || 0,
         y: Number(f.y) || 0,
         rotation: normalizeAngle(Number(f.rotation) || 0),
+        snapMode: f.snapMode === "none" ? "none" : "grid",
         layerId: String(node.id || "")
       })),
       floors: normalizeArray(node.floors, (fl) => ({
@@ -3954,7 +4349,66 @@ function normalizeArray(value, mapper) {
 
 function exportSvg() {
   const exportData = buildExportSvg();
-  downloadTextFile(`${slugify(projectName()) || "mansionforge"}.svg`, exportData);
+  downloadTextFile(`${projectBaseName()}.svg`, exportData);
+}
+
+async function exportPng() {
+  try {
+    const svgMarkup = buildPngSourceSvg();
+    const svgBlob = new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+    const img = new Image();
+    img.decoding = "async";
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = url;
+    });
+
+    const width = Math.max(1, Math.round(img.width));
+    const height = Math.max(1, Math.round(img.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas 2D context unavailable");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
+    URL.revokeObjectURL(url);
+
+    const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!pngBlob) throw new Error("PNG export failed");
+    downloadBlobFile(`${projectBaseName()}.png`, pngBlob);
+  } catch (err) {
+    alert(`PNG export failed: ${err.message || err}`);
+  }
+}
+
+function buildPngSourceSvg() {
+  const scene = ui.sceneLayer;
+  if (!scene) return buildExportSvg();
+
+  let box;
+  try {
+    box = scene.getBBox();
+  } catch (_) {
+    return buildExportSvg();
+  }
+
+  if (!Number.isFinite(box.x) || !Number.isFinite(box.y) || !Number.isFinite(box.width) || !Number.isFinite(box.height) || box.width <= 0 || box.height <= 0) {
+    return buildExportSvg();
+  }
+
+  const margin = 20;
+  const vbX = box.x - margin;
+  const vbY = box.y - margin;
+  const width = box.width + margin * 2;
+  const height = box.height + margin * 2;
+  const sceneClone = scene.cloneNode(true);
+  const sceneMarkup = new XMLSerializer().serializeToString(sceneClone);
+
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="${n(vbX)} ${n(vbY)} ${n(width)} ${n(height)}" width="${n(width)}" height="${n(height)}">${sceneMarkup}</svg>`;
 }
 
 function buildExportSvg() {
@@ -4015,7 +4469,7 @@ function buildExportSvg() {
       const x = furn.x - w / 2;
       const y = furn.y - h / 2;
 
-      inner += `<g transform="rotate(${n(normalizeAngle(furn.rotation))} ${n(furn.x)} ${n(furn.y)})"><rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" rx="6" fill="#f8fafc" stroke="#334155" stroke-width="1.2"/></g>`;
+      inner += `<g transform="rotate(${n(normalizeAngle(furn.rotation))} ${n(furn.x)} ${n(furn.y)})"><rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" rx="6" fill="#f8fafc"/></g>`;
       minX = Math.min(minX, x);
       minY = Math.min(minY, y);
       maxX = Math.max(maxX, x + w);
@@ -4023,11 +4477,11 @@ function buildExportSvg() {
     }
 
     for (const node of layer.nodes) {
-      inner += `<circle cx="${n(node.x)}" cy="${n(node.y)}" r="2.5" fill="#0f172a"/>`;
-      minX = Math.min(minX, node.x - 2.5);
-      minY = Math.min(minY, node.y - 2.5);
-      maxX = Math.max(maxX, node.x + 2.5);
-      maxY = Math.max(maxY, node.y + 2.5);
+      inner += `<circle cx="${n(node.x)}" cy="${n(node.y)}" r="2" fill="#0f172a"/>`;
+      minX = Math.min(minX, node.x - 2);
+      minY = Math.min(minY, node.y - 2);
+      maxX = Math.max(maxX, node.x + 2);
+      maxY = Math.max(maxY, node.y + 2);
     }
 
     chunks.push(`<g id="${escapeAttr(slugify(layer.name) || layer.id)}">${inner}</g>`);
@@ -4084,20 +4538,33 @@ function exportVectorMarkup(vector, a, b) {
     const half = Math.max(5, opening.widthCells * app.state.grid.cellSize * 0.28);
     const s = { x: c.x - dir.x * half, y: c.y - dir.y * half };
     const e = { x: c.x + dir.x * half, y: c.y + dir.y * half };
+    const jambHalf = Math.max(2.2, thickness * 0.48);
+    const onWallWidth = Math.max(1, thickness);
+    const jambStrokeWidth = Math.max(1, thickness * 0.42);
+    markup += `<line x1="${n(s.x - nn.x * jambHalf)}" y1="${n(s.y - nn.y * jambHalf)}" x2="${n(s.x + nn.x * jambHalf)}" y2="${n(s.y + nn.y * jambHalf)}" stroke="#334155" stroke-width="${n(jambStrokeWidth)}"/>`;
+    markup += `<line x1="${n(e.x - nn.x * jambHalf)}" y1="${n(e.y - nn.y * jambHalf)}" x2="${n(e.x + nn.x * jambHalf)}" y2="${n(e.y + nn.y * jambHalf)}" stroke="#334155" stroke-width="${n(jambStrokeWidth)}"/>`;
     if (opening.kind === "door") {
-      const arcR = half * 0.95;
-      const arcEnd = { x: s.x + nn.x * arcR, y: s.y + nn.y * arcR };
-      markup += `<line x1="${n(s.x)}" y1="${n(s.y)}" x2="${n(e.x)}" y2="${n(e.y)}" stroke="#b45309" stroke-width="${n(Math.max(1.3, thickness * 0.58))}" stroke-linecap="round"/>`;
-      markup += `<path d="M ${n(s.x)} ${n(s.y)} A ${n(arcR)} ${n(arcR)} 0 0 1 ${n(arcEnd.x)} ${n(arcEnd.y)}" fill="none" stroke="#d97706" stroke-width="${n(Math.max(1, thickness * 0.36))}" opacity="0.8"/>`;
+      markup += `<line x1="${n(s.x)}" y1="${n(s.y)}" x2="${n(e.x)}" y2="${n(e.y)}" stroke="#92400e" stroke-width="${n(onWallWidth)}" stroke-linecap="round" opacity="0.9"/>`;
+      const geo = doorSymbolGeometry(s, e, opening);
+      const sweepFlag = geo.swingSign > 0 ? 1 : 0;
+      markup += `<path d="M ${n(geo.hinge.x)} ${n(geo.hinge.y)} L ${n(geo.leafBase.x)} ${n(geo.leafBase.y)} A ${n(geo.radius)} ${n(geo.radius)} 0 0 ${sweepFlag} ${n(geo.leafOpenEnd.x)} ${n(geo.leafOpenEnd.y)} Z" fill="#93c5fd" opacity="0.28"/>`;
+      markup += `<line x1="${n(geo.hinge.x)}" y1="${n(geo.hinge.y)}" x2="${n(geo.leafBase.x)}" y2="${n(geo.leafBase.y)}" stroke="#92400e" stroke-width="${n(Math.max(1.2, thickness * 0.38))}" stroke-linecap="round"/>`;
+      markup += `<path d="M ${n(geo.leafBase.x)} ${n(geo.leafBase.y)} A ${n(geo.radius)} ${n(geo.radius)} 0 0 ${sweepFlag} ${n(geo.leafOpenEnd.x)} ${n(geo.leafOpenEnd.y)}" fill="none" stroke="#d97706" stroke-width="${n(Math.max(1, thickness * 0.3))}" opacity="0.9"/>`;
     } else {
-      markup += `<line x1="${n(s.x)}" y1="${n(s.y)}" x2="${n(e.x)}" y2="${n(e.y)}" stroke="#0284c7" stroke-width="${n(Math.max(1.3, thickness * 0.52))}" stroke-linecap="round"/>`;
+      markup += `<line x1="${n(s.x)}" y1="${n(s.y)}" x2="${n(e.x)}" y2="${n(e.y)}" stroke="#0f766e" stroke-width="${n(onWallWidth)}" stroke-linecap="round" opacity="0.95"/>`;
+      const frameOffset = Math.max(1.2, thickness * 0.28);
+      markup += `<line x1="${n(s.x - nn.x * frameOffset)}" y1="${n(s.y - nn.y * frameOffset)}" x2="${n(e.x - nn.x * frameOffset)}" y2="${n(e.y - nn.y * frameOffset)}" stroke="#0f766e" stroke-width="${n(Math.max(1, thickness * 0.32))}" stroke-linecap="round"/>`;
+      markup += `<line x1="${n(s.x + nn.x * frameOffset)}" y1="${n(s.y + nn.y * frameOffset)}" x2="${n(e.x + nn.x * frameOffset)}" y2="${n(e.y + nn.y * frameOffset)}" stroke="#0f766e" stroke-width="${n(Math.max(1, thickness * 0.32))}" stroke-linecap="round"/>`;
     }
   }
 
-  const minX = Math.min(a.x, b.x) - thickness - 8;
-  const minY = Math.min(a.y, b.y) - thickness - 8;
-  const maxX = Math.max(a.x, b.x) + thickness + 8;
-  const maxY = Math.max(a.y, b.y) + thickness + 8;
+  const openingPad = normalizeVectorOpenings(vector.openings)
+    .reduce((maxHalf, o) => Math.max(maxHalf, Math.max(5, o.widthCells * app.state.grid.cellSize * 0.28)), 8);
+  const pad = Math.max(thickness + 8, openingPad + 8);
+  const minX = Math.min(a.x, b.x) - pad;
+  const minY = Math.min(a.y, b.y) - pad;
+  const maxX = Math.max(a.x, b.x) + pad;
+  const maxY = Math.max(a.y, b.y) + pad;
   return { markup, bounds: { minX, minY, maxX, maxY } };
 }
 
@@ -4184,13 +4651,38 @@ function exportZone(layer, zone) {
   return null;
 }
 
-function projectName() {
-  const first = firstLayer(app.state.tree);
-  return first?.name || "mansionforge";
+function projectBaseName() {
+  return app.projectFileName.replace(/\.forg$/i, "");
+}
+
+function sanitizeProjectFileName(nameLike) {
+  const raw = String(nameLike || "").trim();
+  const stripped = raw
+    .replace(/[/\\?%*:|"<>]/g, "_")
+    .replace(/\s+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  const base = stripped ? stripped.replace(/\.forg$/i, "") : "plan_sans_titre";
+  return `${base}.forg`;
+}
+
+function renameProjectFileName() {
+  const currentBase = projectBaseName();
+  const next = prompt("Project filename (without extension)", currentBase);
+  if (next == null) return;
+  const cleaned = next.trim();
+  if (!cleaned) return;
+  app.projectFileName = sanitizeProjectFileName(cleaned);
+  renderAll();
+  persistAutosave();
 }
 
 function downloadTextFile(filename, text) {
   const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  downloadBlobFile(filename, blob);
+}
+
+function downloadBlobFile(filename, blob) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -4208,9 +4700,11 @@ function tryRestoreAutosave() {
     const parsed = JSON.parse(raw);
     const normalized = normalizeLoadedProject(parsed.state ? parsed.state : parsed);
     app.state = normalized;
+    app.projectFileName = sanitizeProjectFileName(parsed.projectFileName || parsed.state?.projectFileName || app.projectFileName);
     if (parsed.view) {
       app.view.showGrid = parsed.view.showGrid !== false;
       app.view.showZones = parsed.view.showZones !== false;
+      app.view.showFurnitureLabels = parsed.view.showFurnitureLabels !== false;
       app.view.snap = parsed.view.snap !== false;
     }
   } catch (_) {
@@ -4222,6 +4716,7 @@ function persistAutosave() {
   const payload = {
     state: {
       version: "1.3",
+      projectFileName: app.projectFileName,
       grid: app.state.grid,
       tree: app.state.tree,
       furnitureLibrary: app.state.furnitureLibrary
@@ -4229,6 +4724,7 @@ function persistAutosave() {
     view: {
       showGrid: app.view.showGrid,
       showZones: app.view.showZones,
+      showFurnitureLabels: app.view.showFurnitureLabels,
       snap: app.view.snap
     }
   };

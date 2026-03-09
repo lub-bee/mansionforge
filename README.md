@@ -23,5 +23,5 @@
 - Zones `rect/ellipse/polygon` via ancres `nodeRef` / `gridPoint`
 - Auto-meublage par type de pièce
 - Undo/Redo (100 états)
-- Sauvegarde/chargement `.bmap`
-- Export SVG (layers visibles, bounding box + marge)
+- Sauvegarde/chargement `.forg`
+- Export SVG et PNG (layers visibles, bounding box + marge)
