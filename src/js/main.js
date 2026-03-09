@@ -9,7 +9,7 @@ const {
 } = window.MF_CONSTANTS || {};
 
 if (!window.MF_CONSTANTS) {
-  throw new Error("MF_CONSTANTS est introuvable. Vérifiez l'ordre de chargement des scripts.");
+  throw new Error("MF_CONSTANTS not found. Check script load order.");
 }
 
 let idCounter = 1;
@@ -19,29 +19,29 @@ const ZOOM_BASELINE = 3;
 const ZOOM_MIN = ZOOM_BASELINE * 0.2;
 const ZOOM_MAX = ZOOM_BASELINE * 4;
 const WALL_STYLES = [
-  { id: "pencil", label: "Crayon" },
-  { id: "wood", label: "Bois" },
-  { id: "stone", label: "Pierre" },
-  { id: "stone_geo", label: "Pierre géométrique" },
-  { id: "metal", label: "Métal" },
+  { id: "pencil", label: "Pencil" },
+  { id: "wood", label: "Wood" },
+  { id: "stone", label: "Stone" },
+  { id: "stone_geo", label: "Geometric stone" },
+  { id: "metal", label: "Metal" },
   { id: "mesh", label: "Mesh" },
-  { id: "glass", label: "Verre" },
-  { id: "water_curtain", label: "Rideau d'eau" },
-  { id: "tapestry", label: "Tenture" },
-  { id: "curtain", label: "Rideau" }
+  { id: "glass", label: "Glass" },
+  { id: "water_curtain", label: "Water curtain" },
+  { id: "tapestry", label: "Tapestry" },
+  { id: "curtain", label: "Curtain" }
 ];
 const FLOOR_TEXTURES = [
-  { id: "stone", label: "Pierre" },
-  { id: "wood", label: "Plancher" },
-  { id: "sand", label: "Sable" },
-  { id: "carpet_red", label: "Tapis rouge" },
-  { id: "carpet_blue", label: "Tapis bleu" },
-  { id: "tiles", label: "Carrelage" }
+  { id: "stone", label: "Stone" },
+  { id: "wood", label: "Wood floor" },
+  { id: "sand", label: "Sand" },
+  { id: "carpet_red", label: "Red carpet" },
+  { id: "carpet_blue", label: "Blue carpet" },
+  { id: "tiles", label: "Tiles" }
 ];
 const ZONE_SHAPE_OPTIONS = [
   { id: "rect", label: "Rectangle" },
-  { id: "ellipse", label: "Cercle" },
-  { id: "vector_lasso", label: "Lasso vecteur" }
+  { id: "ellipse", label: "Circle" },
+  { id: "vector_lasso", label: "Vector lasso" }
 ];
 
 const FURNITURE_PIXEL_PALETTE = Object.freeze({
@@ -330,7 +330,7 @@ function createDefaultState() {
     tree: [{
       type: "layer",
       id: layerId,
-      name: "Layer principal",
+      name: "Main layer",
       visible: true,
       nodes: [],
       vectors: [],
@@ -496,10 +496,10 @@ function onWheel(e) {
 
 function isUsualZoomGesture(e) {
   if (IS_MAC_PLATFORM) {
-    // macOS: zoom uniquement via pinch (évite les zooms involontaires au scroll/drag trackpad).
+    // macOS: zoom only with pinch (avoids accidental zoom while scrolling/panning on trackpad).
     return !!(e.ctrlKey || e.metaKey);
   }
-  // PC: zoom à la molette.
+  // PC: zoom with mouse wheel.
   return true;
 }
 
@@ -742,7 +742,7 @@ function redo() {
 }
 
 function resetProjectWithConfirmation() {
-  const ok = window.confirm("Réinitialiser le projet en cours ? Cette action supprimera le plan actuel.");
+  const ok = window.confirm("Reset current project? This will delete the current map.");
   if (!ok) return;
 
   app.state = createDefaultState();
@@ -1057,7 +1057,7 @@ function showContextBar(clientX, clientY, hits) {
     .map((h) => `
       <div class="ctx-row">
         <button class="ctx-pick" data-pick-kind="${h.kind}" data-pick-id="${h.id}">${escapeHtml(contextHitLabel(h))}</button>
-        <button class="ctx-del" data-del-kind="${h.kind}" data-del-id="${h.id}" title="Supprimer">✕</button>
+        <button class="ctx-del" data-del-kind="${h.kind}" data-del-id="${h.id}" title="Delete">✕</button>
       </div>
     `)
     .join("");
@@ -1096,11 +1096,11 @@ function hideContextBar() {
 
 function contextHitLabel(hit) {
   if (hit.kind === "node") return `Node ${hit.id}`;
-  if (hit.kind === "vector") return `Vecteur ${hit.id}`;
-  if (hit.kind === "opening") return `Ouverture ${hit.id}`;
+  if (hit.kind === "vector") return `Vector ${hit.id}`;
+  if (hit.kind === "opening") return `Opening ${hit.id}`;
   if (hit.kind === "zone") return `Zone ${hit.id}`;
-  if (hit.kind === "furniture") return `Meuble ${hit.id}`;
-  if (hit.kind === "floor") return `Sol ${hit.id}`;
+  if (hit.kind === "furniture") return `Furniture ${hit.id}`;
+  if (hit.kind === "floor") return `Floor ${hit.id}`;
   return `${hit.kind} ${hit.id}`;
 }
 
@@ -1515,10 +1515,10 @@ function redistributeVectorOpenings(openings) {
 
 function createZone(layer, shapeType, anchors) {
   if (!isValidShapeGeometry(layer, shapeType, anchors)) {
-    alert("Zone invalide: la taille ne peut pas être nulle.");
+    alert("Invalid zone: size cannot be zero.");
     return null;
   }
-  const name = prompt("Nom de la zone", `Zone ${layer.zones.length + 1}`) || `Zone ${layer.zones.length + 1}`;
+  const name = prompt("Zone name", `Zone ${layer.zones.length + 1}`) || `Zone ${layer.zones.length + 1}`;
   const roomType = ui.autoRoomType.value || "bedroom_single";
   const zone = {
     id: uid("zone"),
@@ -1537,12 +1537,12 @@ function createZone(layer, shapeType, anchors) {
 
 function createFloor(layer, shapeType, anchors) {
   if (!isValidShapeGeometry(layer, shapeType, anchors)) {
-    alert("Sol invalide: la taille ne peut pas être nulle.");
+    alert("Invalid floor: size cannot be zero.");
     return null;
   }
   const floor = {
     id: uid("floor"),
-    name: `Sol ${((layer.floors || []).length || 0) + 1}`,
+    name: `Floor ${((layer.floors || []).length || 0) + 1}`,
     textureId: ui.floorTextureSelect?.value || "stone",
     shapeType,
     anchors: deepClone(anchors),
@@ -2004,13 +2004,13 @@ function renderToolbarState() {
   const selectedFurniture = ui.furnitureSelect.value;
   const selectedRoomType = ui.autoRoomType.value;
 
-  ui.btnToggleGrid.textContent = `Grille ${app.state.grid.cellSize}px: ${app.view.showGrid ? "On" : "Off"}`;
+  ui.btnToggleGrid.textContent = `Grid ${app.state.grid.cellSize}px: ${app.view.showGrid ? "On" : "Off"}`;
   ui.btnToggleGrid.classList.toggle("active", app.view.showGrid);
   if (ui.btnToggleZones) {
-    ui.btnToggleZones.textContent = app.view.showZones ? "Masquer zones" : "Afficher zones";
+    ui.btnToggleZones.textContent = app.view.showZones ? "Hide zones" : "Show zones";
     ui.btnToggleZones.classList.toggle("active", app.view.showZones);
   }
-  ui.btnToggleSnap.textContent = app.view.snap ? "SNAP" : "LIB";
+  ui.btnToggleSnap.textContent = app.view.snap ? "SNAP" : "FREE";
   ui.btnToggleSnap.classList.toggle("active", app.view.snap);
   ui.gridSize.value = String(app.state.grid.cellSize);
   if (![...ui.zoneShapeSelect.options].some((o) => o.value === app.zoneShape)) {
@@ -2049,7 +2049,7 @@ function renderToolbarState() {
   const activeLayer = getActiveLayer();
   if (ui.activeLayerName) ui.activeLayerName.textContent = activeLayer?.name || "—";
   if (ui.histCount) ui.histCount.textContent = `${app.history.past.length}`;
-  if (ui.scaleInfo) ui.scaleInfo.textContent = `1 carré ≈ ${CELL_SIZE_CM} cm IRL`;
+  if (ui.scaleInfo) ui.scaleInfo.textContent = `1 square ≈ ${CELL_SIZE_CM} cm IRL`;
   if (activeLayer) {
     if (ui.statNodes) ui.statNodes.textContent = `${activeLayer.nodes.length}`;
     if (ui.statVecs) ui.statVecs.textContent = `${activeLayer.vectors.length}`;
@@ -2066,7 +2066,7 @@ function renderToolOptionsPanel() {
 
   if (app.tool === "floor") {
     ui.toolOptions.innerHTML = `
-      <div class="tool-options-head">Textures de Sol</div>
+      <div class="tool-options-head">Floor Textures</div>
       <div class="tile-grid">
         ${FLOOR_TEXTURES.map((f) => `
           <button class="opt-tile ${ui.floorTextureSelect.value === f.id ? "active" : ""}" data-floor-texture="${f.id}">
@@ -2087,7 +2087,7 @@ function renderToolOptionsPanel() {
 
   if (app.tool === "furniture") {
     ui.toolOptions.innerHTML = `
-      <div class="tool-options-head">Bibliothèque Meubles</div>
+      <div class="tool-options-head">Furniture Library</div>
       <div class="tile-grid furniture">
         ${app.state.furnitureLibrary.map((f) => `
           <button class="opt-tile ${ui.furnitureSelect.value === f.id ? "active" : ""}" data-furniture-id="${escapeAttr(f.id)}">
@@ -2108,7 +2108,7 @@ function renderToolOptionsPanel() {
 
   if (app.tool === "zone") {
     ui.toolOptions.innerHTML = `
-      <div class="tool-options-head">Formes de Zone</div>
+      <div class="tool-options-head">Zone Shapes</div>
       <div class="tile-grid">
         ${ZONE_SHAPE_OPTIONS.map((s) => `
           <button class="opt-tile ${app.zoneShape === s.id ? "active" : ""}" data-zone-shape="${s.id}">
@@ -2136,7 +2136,7 @@ function renderToolOptionsPanel() {
       ? getNode(getActiveLayer() || { nodes: [] }, app.transient.pendingVectorNodeId)
       : null;
     ui.toolOptions.innerHTML = `
-      <div class="tool-options-head">Types de Vecteur</div>
+      <div class="tool-options-head">Vector Types</div>
       <div class="tile-grid">
         ${VECTOR_TYPES.map((t) => `
           <button class="opt-tile ${app.vectorPreset.type === t ? "active" : ""}" data-vector-type="${t}">
@@ -2145,7 +2145,7 @@ function renderToolOptionsPanel() {
           </button>
         `).join("")}
       </div>
-      <div class="tool-options-head">Style de Mur</div>
+      <div class="tool-options-head">Wall Style</div>
       <div class="tile-grid">
         ${WALL_STYLES.map((s) => `
           <button class="opt-tile ${app.vectorPreset.wallStyle === s.id ? "active" : ""}" data-vector-style="${s.id}">
@@ -2155,20 +2155,20 @@ function renderToolOptionsPanel() {
         `).join("")}
       </div>
       <div class="row">
-        <label>Épaisseur</label>
+        <label>Thickness</label>
         <input id="optVectorThickness" type="number" min="1" max="40" step="1" value="${Number(app.vectorPreset.thickness) || 4}">
       </div>
       <div class="row">
-        <label>Couleur</label>
+        <label>Color</label>
         <input id="optVectorColor" type="color" value="${toHexColor(app.vectorPreset.color)}">
       </div>
       ${sourceNode ? `
         <div class="row">
-          <label>Tracé en cours</label>
+          <label>Current path</label>
           <input value="Source: ${escapeAttr(sourceNode.id)}" readonly>
         </div>
         <div class="row single">
-          <button id="btnCancelVectorTrace" class="danger">Annuler tracé</button>
+          <button id="btnCancelVectorTrace" class="danger">Cancel path</button>
         </div>
       ` : ""}
     `;
@@ -2206,7 +2206,7 @@ function renderToolOptionsPanel() {
     return;
   }
 
-  ui.toolOptions.innerHTML = `<div class="hint">Sélectionnez un outil pour afficher ses options.</div>`;
+  ui.toolOptions.innerHTML = `<div class="hint">Select a tool to display options.</div>`;
 }
 
 function vectorTypePreviewSvg(type) {
@@ -3219,23 +3219,23 @@ function renderPanels() {
 function renderPropertiesPanel() {
   const layer = getActiveLayer();
   if (!layer) {
-    ui.tabProperties.innerHTML = `<div class="section">Aucun layer actif.</div>`;
+    ui.tabProperties.innerHTML = `<div class="section">No active layer.</div>`;
     return;
   }
 
   if (app.selection.length !== 1) {
     ui.tabProperties.innerHTML = `
       <div class="section">
-        <h4>État</h4>
+        <h4>Status</h4>
         <div class="hint">
-          Layer actif: <strong>${escapeHtml(layer.name)}</strong><br>
-          Sélection: <strong>${app.selection.length}</strong> élément(s)<br>
-          Outil: <strong>${escapeHtml(app.tool)}</strong><br>
+          Active layer: <strong>${escapeHtml(layer.name)}</strong><br>
+          Selection: <strong>${app.selection.length}</strong> item(s)<br>
+          Tool: <strong>${escapeHtml(app.tool)}</strong><br>
           Zoom: <strong>${Math.round((app.view.zoom / ZOOM_BASELINE) * 100)}%</strong>
         </div>
       </div>
       <div class="section hint">
-        Raccourcis: <span class="kbd">Shift+clic</span> multi-sélection, <span class="kbd">Espace+drag</span> pan, molette pour zoom.
+        Shortcuts: <span class="kbd">Shift+click</span> multi-select, <span class="kbd">Space+drag</span> pan, mouse wheel to zoom.
       </div>
     `;
     return;
@@ -3251,35 +3251,35 @@ function renderPropertiesPanel() {
 
     ui.tabProperties.innerHTML = `
       <div class="section">
-        <h4>Vecteur</h4>
+        <h4>Vector</h4>
         <div class="row"><label>Type</label><select id="propVectorType">${VECTOR_TYPES.map((t) => `<option value="${t}" ${t === v.type ? "selected" : ""}>${t}</option>`).join("")}</select></div>
-        <div class="row"><label>Style de mur</label><select id="propVectorStyle">${WALL_STYLES.map((s) => `<option value="${s.id}" ${s.id === (v.wallStyle || "pencil") ? "selected" : ""}>${s.label}</option>`).join("")}</select></div>
-        <div class="row"><label>Épaisseur</label><input id="propVectorThickness" type="number" min="1" max="40" step="1" value="${Number(v.thickness) || 1}"></div>
+        <div class="row"><label>Wall style</label><select id="propVectorStyle">${WALL_STYLES.map((s) => `<option value="${s.id}" ${s.id === (v.wallStyle || "pencil") ? "selected" : ""}>${s.label}</option>`).join("")}</select></div>
+        <div class="row"><label>Thickness</label><input id="propVectorThickness" type="number" min="1" max="40" step="1" value="${Number(v.thickness) || 1}"></div>
         <div class="row single"><input id="propVectorThicknessRange" type="range" min="1" max="40" step="1" value="${Number(v.thickness) || 1}"></div>
-        <div class="row"><label>Couleur</label><input id="propVectorColor" type="color" value="${toHexColor(v.color)}"></div>
-        <div class="row single"><button id="propDeleteEntity" class="danger">Supprimer ce vecteur</button></div>
+        <div class="row"><label>Color</label><input id="propVectorColor" type="color" value="${toHexColor(v.color)}"></div>
+        <div class="row single"><button id="propDeleteEntity" class="danger">Delete this vector</button></div>
       </div>
 
       <div class="section">
-        <h4>Portes / Fenêtres Sur Mur</h4>
+        <h4>Doors / Windows On Wall</h4>
         <div class="row">
-          <button id="propAddDoor">+ Porte</button>
-          <button id="propAddWindow">+ Fenêtre</button>
+          <button id="propAddDoor">+ Door</button>
+          <button id="propAddWindow">+ Window</button>
         </div>
-        <div class="hint">Ajoute des inserts sur le vecteur sélectionné puis réorganise leur ordre.</div>
+        <div class="hint">Add inserts on the selected vector and reorder them.</div>
         <div id="propOpeningsList" class="row single" style="margin-top:8px">
           ${
             openings.length
               ? openings.map((o, idx) => `
                 <div class="row" style="grid-template-columns: auto 1fr auto auto auto; margin-bottom:6px; background:#eef2f7; border:1px solid #dbe3ee; padding:6px; border-radius:6px;">
                   <span>${o.kind === "door" ? "🚪" : "🪟"}</span>
-                  <span>${o.kind === "door" ? "Porte" : "Fenêtre"} ${idx + 1}</span>
+                  <span>${o.kind === "door" ? "Door" : "Window"} ${idx + 1}</span>
                   <button data-open-up="${o.id}" ${idx === 0 ? "disabled" : ""}>↑</button>
                   <button data-open-down="${o.id}" ${idx === openings.length - 1 ? "disabled" : ""}>↓</button>
                   <button data-open-del="${o.id}" class="danger">✕</button>
                 </div>
               `).join("")
-              : `<div class="hint">Aucune porte/fenêtre sur ce mur.</div>`
+              : `<div class="hint">No door/window on this wall.</div>`
           }
         </div>
       </div>
@@ -3322,8 +3322,8 @@ function renderPropertiesPanel() {
         <h4>Node</h4>
         <div class="row"><label>X</label><input id="propNodeX" type="number" step="1" value="${Math.round(n.x)}"></div>
         <div class="row"><label>Y</label><input id="propNodeY" type="number" step="1" value="${Math.round(n.y)}"></div>
-        <div class="row single"><span class="hint">Vecteurs connectés: <strong>${connected}</strong></span></div>
-        <div class="row single"><button id="propDeleteEntity" class="danger">Supprimer ce node</button></div>
+        <div class="row single"><span class="hint">Connected vectors: <strong>${connected}</strong></span></div>
+        <div class="row single"><button id="propDeleteEntity" class="danger">Delete this node</button></div>
       </div>
     `;
 
@@ -3342,12 +3342,12 @@ function renderPropertiesPanel() {
 
     ui.tabProperties.innerHTML = `
       <div class="section">
-        <h4>Ouverture</h4>
-        <div class="row"><label>Type</label><select id="propOpeningKind"><option value="door" ${opening.kind === "door" ? "selected" : ""}>Porte</option><option value="window" ${opening.kind === "window" ? "selected" : ""}>Fenêtre</option></select></div>
-        <div class="row"><label>Largeur</label><input id="propOpeningWidth" type="number" min="0.4" max="3" step="0.1" value="${clamp(Number(opening.widthCells) || 1, 0.4, 3)}"></div>
+        <h4>Opening</h4>
+        <div class="row"><label>Type</label><select id="propOpeningKind"><option value="door" ${opening.kind === "door" ? "selected" : ""}>Door</option><option value="window" ${opening.kind === "window" ? "selected" : ""}>Window</option></select></div>
+        <div class="row"><label>Width</label><input id="propOpeningWidth" type="number" min="0.4" max="3" step="0.1" value="${clamp(Number(opening.widthCells) || 1, 0.4, 3)}"></div>
         <div class="row"><label>Position</label><input id="propOpeningT" type="range" min="0.05" max="0.95" step="0.01" value="${clamp(Number(opening.t) || 0.5, 0.05, 0.95)}"></div>
-        <div class="row"><label>Vecteur</label><input value="${escapeAttr(vector.id)}" readonly></div>
-        <div class="row single"><button id="propDeleteEntity" class="danger">Supprimer cette ouverture</button></div>
+        <div class="row"><label>Vector</label><input value="${escapeAttr(vector.id)}" readonly></div>
+        <div class="row single"><button id="propDeleteEntity" class="danger">Delete this opening</button></div>
       </div>
     `;
 
@@ -3382,11 +3382,11 @@ function renderPropertiesPanel() {
 
     ui.tabProperties.innerHTML = `
       <div class="section">
-        <h4>Meuble</h4>
-        <div class="row"><label>Nom</label><input value="${escapeAttr(def?.label || f.furnitureId)}" readonly></div>
+        <h4>Furniture</h4>
+        <div class="row"><label>Name</label><input value="${escapeAttr(def?.label || f.furnitureId)}" readonly></div>
         <div class="row"><label>Rotation</label><input id="propFurnitureRot" type="number" min="0" max="359" step="1" value="${normalizeAngle(f.rotation)}"></div>
         <div class="row"><label>Layer</label><input value="${escapeAttr(layer.name)}" readonly></div>
-        <div class="row single"><button id="propDeleteEntity" class="danger">Supprimer ce meuble</button></div>
+        <div class="row single"><button id="propDeleteEntity" class="danger">Delete this furniture</button></div>
       </div>
     `;
 
@@ -3406,13 +3406,13 @@ function renderPropertiesPanel() {
     ui.tabProperties.innerHTML = `
       <div class="section">
         <h4>Zone</h4>
-        <div class="row"><label>Nom</label><input id="propZoneName" value="${escapeAttr(z.name || "")}"></div>
-        <div class="row"><label>Type pièce</label><select id="propZoneRoomType">${ROOM_TYPES.map((r) => `<option value="${r.id}" ${r.id === z.roomType ? "selected" : ""}>${r.label}</option>`).join("")}</select></div>
-        <div class="row"><label>Couleur fond</label><input id="propZoneFill" type="color" value="${toHexColor(z.fill)}"></div>
-        <div class="row"><label>Couleur contour</label><input id="propZoneStroke" type="color" value="${toHexColor(z.stroke)}"></div>
+        <div class="row"><label>Name</label><input id="propZoneName" value="${escapeAttr(z.name || "")}"></div>
+        <div class="row"><label>Room type</label><select id="propZoneRoomType">${ROOM_TYPES.map((r) => `<option value="${r.id}" ${r.id === z.roomType ? "selected" : ""}>${r.label}</option>`).join("")}</select></div>
+        <div class="row"><label>Fill color</label><input id="propZoneFill" type="color" value="${toHexColor(z.fill)}"></div>
+        <div class="row"><label>Stroke color</label><input id="propZoneStroke" type="color" value="${toHexColor(z.stroke)}"></div>
         <div class="row"><label>Layer</label><input value="${escapeAttr(layer.name)}" readonly></div>
-        <div class="row single"><button id="propZoneAuto">Auto-meubler cette zone</button></div>
-        <div class="row single"><button id="propDeleteEntity" class="danger">Supprimer cette zone</button></div>
+        <div class="row single"><button id="propZoneAuto">Auto-furnish this zone</button></div>
+        <div class="row single"><button id="propDeleteEntity" class="danger">Delete this zone</button></div>
       </div>
     `;
 
@@ -3431,23 +3431,23 @@ function renderPropertiesPanel() {
     const fl = (layer.floors || []).find((x) => x.id === sel.id);
     if (!fl) return;
     const textures = [
-      ["stone", "Pierre"],
-      ["wood", "Plancher"],
-      ["sand", "Sable"],
-      ["carpet_red", "Tapis rouge"],
-      ["carpet_blue", "Tapis bleu"],
-      ["tiles", "Carrelage"]
+      ["stone", "Stone"],
+      ["wood", "Wood floor"],
+      ["sand", "Sand"],
+      ["carpet_red", "Red carpet"],
+      ["carpet_blue", "Blue carpet"],
+      ["tiles", "Tiles"]
     ];
 
     ui.tabProperties.innerHTML = `
       <div class="section">
-        <h4>Sol</h4>
-        <div class="row"><label>Nom</label><input id="propFloorName" value="${escapeAttr(fl.name || fl.id)}"></div>
+        <h4>Floor</h4>
+        <div class="row"><label>Name</label><input id="propFloorName" value="${escapeAttr(fl.name || fl.id)}"></div>
         <div class="row"><label>Texture</label><select id="propFloorTexture">${textures.map(([id, label]) => `<option value="${id}" ${id === (fl.textureId || "stone") ? "selected" : ""}>${label}</option>`).join("")}</select></div>
-        <div class="row"><label>Opacité</label><input id="propFloorOpacity" type="range" min="0.1" max="1" step="0.05" value="${clamp(Number(fl.opacity) || 1, 0.1, 1)}"></div>
-        <div class="row"><label>Visible</label><select id="propFloorVisible"><option value="1" ${fl.visible === false ? "" : "selected"}>Oui</option><option value="0" ${fl.visible === false ? "selected" : ""}>Non</option></select></div>
+        <div class="row"><label>Opacity</label><input id="propFloorOpacity" type="range" min="0.1" max="1" step="0.05" value="${clamp(Number(fl.opacity) || 1, 0.1, 1)}"></div>
+        <div class="row"><label>Visible</label><select id="propFloorVisible"><option value="1" ${fl.visible === false ? "" : "selected"}>Yes</option><option value="0" ${fl.visible === false ? "selected" : ""}>No</option></select></div>
         <div class="row"><label>Layer</label><input value="${escapeAttr(layer.name)}" readonly></div>
-        <div class="row single"><button id="propDeleteEntity" class="danger">Supprimer ce sol</button></div>
+        <div class="row single"><button id="propDeleteEntity" class="danger">Delete this floor</button></div>
       </div>
     `;
 
@@ -3479,7 +3479,7 @@ function renderZonesPanel() {
 
   const zones = layer.zones;
   const rows = zones.map((z) => {
-    const label = ROOM_TYPES.find((r) => r.id === z.roomType)?.label || z.roomType || "non défini";
+    const label = ROOM_TYPES.find((r) => r.id === z.roomType)?.label || z.roomType || "undefined";
     return `
       <div class="section">
         <div><strong>${escapeHtml(z.name || z.id)}</strong></div>
@@ -3489,12 +3489,12 @@ function renderZonesPanel() {
           <span>${escapeHtml(layer.name)}</span>
         </div>
         <div class="row" style="grid-template-columns: 1fr 1fr;">
-          <span class="muted">Couleur</span>
+          <span class="muted">Color</span>
           <span style="display:inline-flex; width:26px; height:14px; border-radius:4px; background:${escapeAttr(z.fill || "rgba(56,189,248,0.22)")}; border:2px solid ${escapeAttr(z.stroke || "#0284c7")}"></span>
         </div>
         <div class="row" style="grid-template-columns: auto auto; gap:6px; margin-top:8px;">
-          <button class="btn-mini" data-zone-select="${escapeAttr(z.id)}">Sélectionner</button>
-          <button class="btn-mini" data-zone-auto="${escapeAttr(z.id)}">Auto-meubler</button>
+          <button class="btn-mini" data-zone-select="${escapeAttr(z.id)}">Select</button>
+          <button class="btn-mini" data-zone-auto="${escapeAttr(z.id)}">Auto-furnish</button>
         </div>
       </div>
     `;
@@ -3502,10 +3502,10 @@ function renderZonesPanel() {
 
   ui.tabZones.innerHTML = `
     <div class="section">
-      <h4>Zones du layer actif</h4>
+      <h4>Zones in active layer</h4>
       <div class="hint">${zones.length} zone(s)</div>
     </div>
-    ${rows || `<div class="section hint">Aucune zone.</div>`}
+    ${rows || `<div class="section hint">No zones.</div>`}
   `;
 
   [...ui.tabZones.querySelectorAll("[data-zone-select]")].forEach((btn) => {
@@ -3528,9 +3528,9 @@ function renderZonesPanel() {
 function renderLayersPanel() {
   ui.tabLayers.innerHTML = `
     <div class="section">
-      <h4>Gestion Layers / Groups</h4>
-      <div class="row single"><button id="btnAddRootLayer">+ Layer racine</button></div>
-      <div class="row single"><button id="btnAddRootGroup">+ Group racine</button></div>
+      <h4>Layers / Groups</h4>
+      <div class="row single"><button id="btnAddRootLayer">+ Root layer</button></div>
+      <div class="row single"><button id="btnAddRootGroup">+ Root group</button></div>
     </div>
     <div id="layerTree"></div>
   `;
@@ -3585,13 +3585,13 @@ function renderTreeNodes(nodes, container, depth) {
     if (node.type === "group") {
       const addLayerBtn = document.createElement("button");
       addLayerBtn.textContent = "+L";
-      addLayerBtn.title = "Ajouter layer";
+      addLayerBtn.title = "Add layer";
       addLayerBtn.addEventListener("click", () => mutate(() => addLayer(node.id)));
       addLayerBtn.style.width = "40px";
 
       const addGroupBtn = document.createElement("button");
       addGroupBtn.textContent = "+G";
-      addGroupBtn.title = "Ajouter group";
+      addGroupBtn.title = "Add group";
       addGroupBtn.addEventListener("click", () => mutate(() => addGroup(node.id)));
       addGroupBtn.style.width = "40px";
 
@@ -3600,7 +3600,7 @@ function renderTreeNodes(nodes, container, depth) {
 
     const delBtn = document.createElement("button");
     delBtn.textContent = "X";
-    delBtn.title = "Supprimer";
+    delBtn.title = "Delete";
     delBtn.className = "danger";
     delBtn.style.width = "34px";
     delBtn.addEventListener("click", () => mutate(() => removeTreeNode(node.id)));
@@ -3668,7 +3668,7 @@ function removeTreeNode(nodeId) {
   if (ref.node.type === "layer") {
     const layerCount = countLayers(app.state.tree);
     if (layerCount <= 1) {
-      alert("Impossible de supprimer le dernier layer.");
+      alert("Cannot delete the last layer.");
       return;
     }
   }
@@ -3699,7 +3699,7 @@ function autoFurnishSelection() {
   if (!layer) return;
   const zoneSel = app.selection.find((s) => s.kind === "zone");
   if (!zoneSel) {
-    alert("Sélectionnez d'abord une zone.");
+    alert("Select a zone first.");
     return;
   }
 
@@ -3773,7 +3773,7 @@ function handleFurnitureImport(e) {
       const incoming = Array.isArray(parsed) ? parsed : [parsed];
       mutate(() => appendFurnitureDefs(incoming));
     } catch (err) {
-      alert(`Import meubles impossible: ${err.message}`);
+      alert(`Furniture import failed: ${err.message}`);
     }
   };
   reader.readAsText(file);
@@ -3834,17 +3834,17 @@ function handleLoadFile(e) {
       renderAll();
       persistAutosave();
     } catch (err) {
-      alert(`Chargement impossible: ${err.message}`);
+      alert(`Load failed: ${err.message}`);
     }
   };
   reader.readAsText(file);
 }
 
 function normalizeLoadedProject(data) {
-  if (!data || typeof data !== "object") throw new Error("Fichier invalide");
+  if (!data || typeof data !== "object") throw new Error("Invalid file");
 
   const tree = Array.isArray(data.tree) ? data.tree : [];
-  if (!tree.length) throw new Error("Aucun layer/group dans tree");
+  if (!tree.length) throw new Error("No layer/group found in tree");
 
   const normalized = {
     version: "1.3",
@@ -3868,7 +3868,7 @@ function normalizeLoadedProject(data) {
   };
 
   const first = firstLayer(normalized.tree);
-  if (!first) throw new Error("Aucun layer trouvé");
+  if (!first) throw new Error("No layer found");
   normalized.activeLayerId = first.id;
   return normalized;
 }
@@ -3918,7 +3918,7 @@ function normalizeTree(nodes) {
       })),
       floors: normalizeArray(node.floors, (fl) => ({
         id: String(fl.id || uid("floor")),
-        name: String(fl.name || "Sol"),
+        name: String(fl.name || "Floor"),
         textureId: String(fl.textureId || "stone"),
         shapeType: ["rect", "ellipse", "polygon", "lasso", "vector_lasso"].includes(fl.shapeType) ? fl.shapeType : "polygon",
         anchors: normalizeArray(fl.anchors, (a) => {
