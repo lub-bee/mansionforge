@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MapForge — Éditeur de Plans JDR</title>
+  <link rel="stylesheet" href="./src/css/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header id="titlebar">
+      <div class="brand">MAPFORGE</div>
+      <div id="filename-display" class="filename" title="Cliquer pour renommer">plan_sans_titre.bmap</div>
+      <div class="actions">
+        <button class="btn-title" id="btnUndo" title="Ctrl+Z">↩ Annuler</button>
+        <button class="btn-title" id="btnRedo" title="Ctrl+Y">↪ Rétablir</button>
+        <button class="btn-title danger" id="btnResetProject" title="Réinitialiser le projet">🗑 Reset</button>
+        <button class="btn-title" id="btnLoad">📂 Charger</button>
+        <button class="btn-title" id="btnSave">💾 Sauver</button>
+        <button class="btn-title primary" id="btnExportSvg">⬇ Export SVG</button>
+      </div>
+    </header>
+
+    <nav id="toolbar">
+      <button class="tool-btn active" data-tool="select" data-tip="Sélection" id="tool-select" aria-label="Sélection">
+        <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M3 2l11 7-5.5 1.2L6 17 3 2z" fill="currentColor"/></svg>
+      </button>
+      <button class="tool-btn" data-tool="vector" data-tip="Vecteur" id="tool-vector" aria-label="Vecteur">
+        <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M3 15L15 3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="3" cy="15" r="2" fill="currentColor"/><circle cx="15" cy="3" r="2" fill="currentColor"/></svg>
+      </button>
+      <button class="tool-btn" data-tool="zone" data-tip="Zone" id="tool-zone" aria-label="Zone">
+        <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><rect x="3.5" y="3.5" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="3 2"/></svg>
+      </button>
+      <button class="tool-btn" data-tool="floor" data-tip="Sol" id="tool-floor" aria-label="Sol">
+        <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M2 12l8-4 8 4-8 4-8-4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M2 8l8-4 8 4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+      </button>
+      <button class="tool-btn" data-tool="furniture" data-tip="Meuble" id="tool-furniture" aria-label="Meuble">
+        <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><rect x="3" y="7" width="14" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 15v2M14 15v2M6 7V5a4 4 0 0 1 8 0v2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <button class="tool-btn" data-tool="delete" data-tip="Supprimer" id="tool-delete" aria-label="Supprimer">
+        <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M4 6h12M7 6V4h6v2M6 6v10h8V6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8.5 9v4M11.5 9v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <div class="tool-sep"></div>
+      <button class="tool-btn" id="btnToggleSnap" data-tip="Mode Snap">SN</button>
+      <button class="tool-btn" id="btnImportFurniture" data-tip="Import Meubles">IMP</button>
+      <button class="tool-btn" id="btnAutoFurnish" data-tip="Auto-meubler">AUTO</button>
+      <div class="tool-spacer"></div>
+      <div class="tool-badge" id="zoom-badge">100</div>
+    </nav>
+
+    <main id="canvasWrap" class="select-mode">
+      <div class="grid-bg" id="grid-bg"></div>
+
+      <svg id="canvas" aria-label="canvas" data-tool="select">
+        <g id="viewport">
+          <g id="gridLayer"></g>
+          <g id="sceneLayer"></g>
+          <g id="overlayLayer"></g>
+        </g>
+      </svg>
+
+      <div id="snap-dot"></div>
+
+      <button id="btnToggleGrid" class="grid-toggle active">Grille: On</button>
+
+      <div id="zoom-controls">
+        <button class="zoom-btn" id="btn-zoom-in" title="Zoom +">+</button>
+        <div class="zoom-level" id="zoom-display">100%</div>
+        <button class="zoom-btn" id="btn-zoom-out" title="Zoom -">−</button>
+      </div>
+
+      <div id="context-bar"></div>
+    </main>
+
+    <aside id="panel">
+      <div id="panel-tabs" class="tabs">
+        <button class="tab-btn active" data-tab="properties">Propriétés</button>
+        <button class="tab-btn" data-tab="zones">Zones</button>
+        <button class="tab-btn" data-tab="layers">Layers</button>
+      </div>
+
+      <div class="tab-content tab active" id="tab-properties"></div>
+      <div class="tab-content tab" id="tab-zones"></div>
+      <div class="tab-content tab" id="tab-layers"></div>
+
+      <div class="panel-controls">
+        <div id="tool-options" class="tool-options"></div>
+
+        <label>Type auto-meublage
+          <select id="autoRoomType" class="p-select"></select>
+        </label>
+
+        <label>Taille grille
+          <input id="gridSize" class="p-input" type="number" min="4" step="1" value="20" />
+        </label>
+
+        <button id="btnToggleZones" class="btn-title">Afficher zones</button>
+
+        <div class="legacy-controls" hidden>
+          <select id="zoneShapeSelect" class="p-select">
+            <option value="rect">Rectangle</option>
+            <option value="ellipse">Cercle</option>
+            <option value="vector_lasso">Lasso de vecteur</option>
+            <option value="polygon">Polygone (legacy)</option>
+            <option value="lasso">Lasso (legacy)</option>
+          </select>
+
+          <select id="floorTextureSelect" class="p-select">
+            <option value="stone">Pierre</option>
+            <option value="wood">Plancher</option>
+            <option value="sand">Sable</option>
+            <option value="carpet_red">Tapis rouge</option>
+            <option value="carpet_blue">Tapis bleu</option>
+            <option value="tiles">Carrelage</option>
+          </select>
+
+          <select id="furnitureSelect" class="p-select"></select>
+        </div>
+      </div>
+    </aside>
+
+    <footer id="statusbar">
+      <div class="sb-mode" id="status-mode">SÉLECTION</div>
+      <div class="sb-item">X <span id="cursor-x">—</span></div>
+      <div class="sb-item">Y <span id="cursor-y">—</span></div>
+      <div class="sb-item">Nodes <span id="stat-nodes">0</span></div>
+      <div class="sb-item">Vecteurs <span id="stat-vecs">0</span></div>
+      <div class="sb-item">Pièces <span id="stat-zones">0</span></div>
+      <div class="sb-item" id="scale-info">1 carré ≈ 30 cm IRL</div>
+      <div class="sb-spacer"></div>
+      <div class="sb-item">Layer actif: <span id="active-layer-name">—</span></div>
+      <div class="sb-item">Historique <span id="hist-count">0</span>/100</div>
+    </footer>
+  </div>
+
+  <input id="fileLoad" type="file" hidden accept=".bmap,.json" />
+  <input id="fileFurniture" type="file" hidden accept=".json" />
+
+  <script src="./src/js/constants.js"></script>
+  <script src="./src/js/main.js"></script>
+</body>
+</html>
